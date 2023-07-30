@@ -1,5 +1,5 @@
 import { Context } from '../../core/Context';
-import { getRefFromSchema } from '../../utils/getRefFromSchema';
+import { OpenAPIV3 } from '../interfaces/OpenApiTypes';
 import { getModel } from '../v3/parser/getModel';
 import { getModelComposition } from './parser/getModelComposition';
 import { getModelProperties } from './parser/getModelProperties';
@@ -33,6 +33,19 @@ export class Parser {
             } else if (definition.oneOf || definition.anyOf || definition.allOf || ['string', 'number', 'integer', 'boolean', 'array'].includes(definition.type)) {
                 return `${this.context.prefix.type}${value}`;
             } else if (definition.type === 'object') {
+                return `${this.context.prefix.interface}${value}`;
+            }
+        }
+        return value;
+    }
+
+    public getTypeNameBySchema(value: string, definition: OpenAPIV3.SchemaObject): string {
+        if (definition) {
+            if (definition.enum) {
+                return `${this.context.prefix.enum}${value}`;
+            } else if (definition.oneOf || definition.anyOf || definition.allOf || (definition?.type && ['string', 'number', 'integer', 'boolean', 'array'].includes(definition.type))) {
+                return `${this.context.prefix.type}${value}`;
+            } else if (definition?.type === 'object') {
                 return `${this.context.prefix.interface}${value}`;
             }
         }

@@ -1,23 +1,21 @@
+import { Model } from '../../../client/interfaces/Model';
 import type { OperationResponse } from '../../../client/interfaces/OperationResponse';
-import type { OpenApi } from '../interfaces/OpenApi';
-import type { OpenApiResponse } from '../interfaces/OpenApiResponse';
-import type { OpenApiResponses } from '../interfaces/OpenApiResponses';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
 import { Parser } from '../Parser';
 import { getOperationResponseCode } from './getOperationResponseCode';
 
-export function getOperationResponses(this: Parser, openApi: OpenApi, responses: OpenApiResponses): OperationResponse[] {
+export function getOperationResponses(this: Parser, openApi: OpenAPIV3.Document, responses: OpenAPIV3.ResponsesObject, models: Model[], parentRef = ''): OperationResponse[] {
     const operationResponses: OperationResponse[] = [];
 
     // Iterate over each response code and get the
     // status code and response message (if any).
     for (const code in responses) {
         if (responses.hasOwnProperty(code)) {
-            const responseOrReference = responses[code];
-            const response = (responseOrReference.$ref ? (this.context.get(responseOrReference.$ref) as Record<string, any>) : responseOrReference) as OpenApiResponse;
+            const response = responses[code] as OpenAPIV3.ResponseObject;
             const responseCode = getOperationResponseCode(code);
 
             if (responseCode) {
-                const operationResponse = this.getOperationResponse(openApi, response, responseCode, '');
+                const operationResponse = this.getOperationResponse(openApi, response, responseCode, parentRef, models);
                 operationResponses.push(operationResponse);
             }
         }

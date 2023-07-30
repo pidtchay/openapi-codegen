@@ -20,3 +20,5 @@ export type Options = {
 };
 
 export declare function generate(options: Options): Promise<void>;
+
+// export declare function generateApi(input: string, output: string): Promise<void>;

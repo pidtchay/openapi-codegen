@@ -1,13 +1,9 @@
 import type { OperationParameters } from '../../../client/interfaces/OperationParameters';
-import { Context } from '../../../core/Context';
-import type { OpenApi } from '../interfaces/OpenApi';
-import type { OpenApiParameter } from '../interfaces/OpenApiParameter';
-import { Parser } from '../Parser';
-import { getOperationParameter } from './getOperationParameter';
-import { GetTypeName } from './getType';
 import { sortByRequired } from '../../../utils/sortByRequired';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
+import { Parser } from '../Parser';
 
-export function getOperationParameters(this: Parser, openApi: OpenApi, parameters: OpenApiParameter[]): OperationParameters {
+export function getOperationParameters(this: Parser, openApi: OpenAPIV3.Document, parameters: OpenAPIV3.ParameterObject[]): OperationParameters {
     const operationParameters: OperationParameters = {
         imports: [],
         parameters: [],
@@ -20,14 +16,13 @@ export function getOperationParameters(this: Parser, openApi: OpenApi, parameter
     };
 
     // Iterate over the parameters
-    parameters.forEach(parameterOrReference => {
-        const parameterDef = (parameterOrReference.$ref ? (this.context.get(parameterOrReference.$ref) as Record<string, any>) : parameterOrReference) as OpenApiParameter;
-        const parameter = this.getOperationParameter(openApi, parameterDef);
+    parameters.forEach(parameterDefinition => {
+        const parameter = this.getOperationParameter(openApi, parameterDefinition);
 
         // We ignore the "api-version" param, since we do not want to add this
         // as the first / default parameter for each of the service calls.
         if (parameter.prop !== 'api-version') {
-            switch (parameterDef.in) {
+            switch (parameterDefinition.in) {
                 case 'path':
                     operationParameters.parametersPath.push(parameter);
                     operationParameters.parameters.push(parameter);

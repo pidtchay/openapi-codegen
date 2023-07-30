@@ -1,15 +1,15 @@
 import { Import } from '../../../client/interfaces/Import';
 import { Model } from '../../../client/interfaces/Model';
 import type { Service } from '../../../client/interfaces/Service';
+import { dirName, join } from '../../../core/path';
 import { getClassName } from '../../../utils/getClassName';
 import { unique } from '../../../utils/unique';
-import type { OpenApi } from '../interfaces/OpenApi';
-import { OpenApiOperation } from '../interfaces/OpenApiOperation';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
 import { Parser } from '../Parser';
 import { getServiceClassName } from './getServiceClassName';
 
-function getServiceName(op: OpenApiOperation, fileName: string): string {
-    return getServiceClassName(op.tags?.[0] || `${getClassName(fileName)}Service`);
+function getServiceName(operation: OpenAPIV3.OperationObject, fileName: string): string {
+    return getServiceClassName(operation.tags?.[0] || `${getClassName(fileName)}Service`);
 }
 
 function fillModelsByAlias(items: Model[], value: Import) {
@@ -21,57 +21,133 @@ function fillModelsByAlias(items: Model[], value: Import) {
         });
 }
 
+const SCHEMA_HTTP_METHODS_ARRAY: string[] = Object.values(OpenAPIV3.HttpMethods);
+
+/*
+for (const definitionName in openApi.paths) {
+    const definitionType = getType(definitionName);
+    const pathItem: OpenAPIV3.PathItemObject = openApi.paths[definitionName] || {};
+    if (pathItem.parameters) {
+        for (const parameter of pathItem.parameters) {
+            if (isType<OpenAPIV3.ParameterObject>(parameter) && parameter?.schema) {
+                pathSchemas.push((parameter as OpenAPIV3.ParameterObject).schema as OpenAPIV3.SchemaObject);
+                // TODO Check result!
+                const modelPath = getRelativeModelPath(outputModels, definitionType.path);
+                const model = getModel({
+                    openApi: openApi,
+                    definition: (parameter as OpenAPIV3.ParameterObject).schema as any,
+                    isDefinition: true,
+                    name: definitionType.base,
+                    path: modelPath,
+                    parentRef: '',
+                });
+                models.push(model);
+                // newPathSchemas = Object.assign(newPathSchemas, { [path]: (parameter as OpenAPIV3.ParameterObject).schema as OpenAPIV3.SchemaObject });
+            }
+        }
+    }
+    const operationsArray = [
+        OpenAPIV3.HttpMethods.GET,
+        OpenAPIV3.HttpMethods.DELETE,
+        OpenAPIV3.HttpMethods.HEAD,
+        OpenAPIV3.HttpMethods.OPTIONS,
+        OpenAPIV3.HttpMethods.PATCH,
+        OpenAPIV3.HttpMethods.POST,
+        OpenAPIV3.HttpMethods.PUT,
+        OpenAPIV3.HttpMethods.TRACE,
+    ];
+    for (const operationName of operationsArray) {
+        const operation = pathItem[operationName];
+        if (operation && operation.requestBody) {
+            const requestBody = operation.requestBody as OpenAPIV3.RequestBodyObject;
+            if (requestBody?.content?.['application/json']?.schema) {
+                pathSchemas.push(requestBody.content['application/json'].schema as OpenAPIV3.SchemaObject);
+                // TODO Check result!
+                const modelPath = getRelativeModelPath(outputModels, definitionType.path);
+                const model = getModel({
+                    openApi: openApi,
+                    definition: requestBody.content['application/json'].schema as any,
+                    isDefinition: true,
+                    name: definitionType.base,
+                    path: modelPath,
+                    parentRef: '',
+                });
+                models.push(model);
+            }
+        }
+
+        if (operation && operation.responses) {
+            for (const response in operation.responses) {
+                if (response === 'default' || (Number.isInteger(parseInt(response)) && parseInt(response) >= 200 && parseInt(response) < 300)) {
+                    const responseObject = operation.responses[response] as OpenAPIV3.ResponseObject;
+                    if (responseObject?.content?.['application/json']?.schema) {
+                        pathSchemas.push(responseObject.content['application/json'].schema as OpenAPIV3.SchemaObject);
+                        // TODO Check result!
+                        const modelPath = getRelativeModelPath(outputModels, definitionType.path);
+                        const model = getModel({
+                            openApi: openApi,
+                            definition: responseObject.content['application/json'].schema as any,
+                            isDefinition: true,
+                            name: definitionType.base,
+                            path: modelPath,
+                            parentRef: '',
+                        });
+                        models.push(model);
+                    }
+                }
+            }
+        }
+    }
+}
+*/
+
 /**
  * Get the OpenAPI services
+ *
+ * Есть массив моделей. Они иммеют разные параметры, по которым можно найти совпадение.
+ * Есть блок paths с обезличенными моделями.
+ * Попробовать сгенерировать описание модели на основе разных блоков методов
+ * сравнить модели в массиве и за пределами.
  */
-export function getServices(this: Parser, openApi: OpenApi): Service[] {
+export function getServices(this: Parser, openApi: OpenAPIV3.Document, models: Model[]): Service[] {
     const services = new Map<string, Service>();
+
     for (const url in openApi.paths) {
         if (openApi.paths.hasOwnProperty(url)) {
             // Grab path and parse any global path parameters
-            const path = openApi.paths[url];
-            const pathParams = this.getOperationParameters(openApi, path.parameters || []);
+            const pathItem: OpenAPIV3.PathItemObject = openApi.paths[url] || {};
 
-            // Parse all the methods for this path
-            for (const method in path) {
-                if (path.hasOwnProperty(method)) {
-                    switch (method) {
-                        case 'get':
-                        case 'put':
-                        case 'post':
-                        case 'delete':
-                        case 'options':
-                        case 'head':
-                        case 'patch':
-                            // Each method contains an OpenAPI operation, we parse the operation
-                            const op = path[method]!;
-                            const fileName = this.context.fileName();
-                            const serviceName = getServiceName(op, fileName);
-                            // If we have already declared a service, then we should fetch that and
-                            // append the new method to it. Otherwise we should create a new service object.
-                            const service =
-                                services.get(serviceName) ||
-                                ({
-                                    name: serviceName,
-                                    originName: getClassName(op.tags?.[0] || fileName),
-                                    operations: [],
-                                    imports: [],
-                                } as Service);
-                            const operation = this.getOperation(openApi, url, method, op, pathParams, serviceName);
-
-                            // Push the operation in the service
-                            service.operations.push(operation);
-                            operation.imports = operation.imports.map(item => {
-                                const operationImport = service.imports.find(serviceImport => serviceImport.path === item.path);
-                                if (!operationImport) {
-                                    return item;
-                                }
-                                return operationImport;
-                            });
-                            service.imports.push(...operation.imports);
-                            services.set(operation.service, service);
-                            break;
-                    }
+            for (const operationName of SCHEMA_HTTP_METHODS_ARRAY) {
+                const method = pathItem[operationName as OpenAPIV3.HttpMethods];
+                if (method) {
+                    const fileName = this.context.fileName();
+                    const serviceName = getServiceName(method, fileName);
+                    const root = '';
+                    const pathItemRef = pathItem?.$ref || '';
+                    const newParentRef = pathItemRef.match(/^(http:\/\/|https:\/\/)/g) ? '' : pathItemRef.match(/^(#\/)/g) ? root : join(dirName(root), pathItemRef);
+                    // const parameters: OpenAPIV3.ParameterObject[] = method.parameters as OpenAPIV3.ParameterObject[];
+                    // const pathParams = this.getOperationParameters(openApi, parameters);
+                    // If we have already declared a service, then we should fetch that and
+                    // append the new method to it. Otherwise we should create a new service object.
+                    const service =
+                        services.get(serviceName) ||
+                        ({
+                            name: serviceName,
+                            originName: getClassName(method.tags?.[0] || fileName),
+                            operations: [],
+                            imports: [],
+                        } as Service);
+                    const operation = this.getOperation(openApi, url, operationName, method, serviceName, models, newParentRef);
+                    service.operations.push(operation);
+                    operation.imports = operation.imports.map(item => {
+                        const operationImport = service.imports.find(serviceImport => serviceImport.path === item.path);
+                        if (!operationImport) {
+                            return item;
+                        }
+                        return operationImport;
+                    });
+                    service.imports.push(...operation.imports);
+                    services.set(operation.service, service);
                 }
             }
         }
@@ -106,5 +182,7 @@ export function getServices(this: Parser, openApi: OpenApi): Service[] {
             }
         });
     });
+    const result = Array.from(services.values());
+    console.log(result);
     return Array.from(services.values());
 }

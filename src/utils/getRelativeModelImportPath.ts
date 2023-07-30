@@ -43,7 +43,7 @@ export function getRelativeModelImportPath(rootPath: string | undefined, relativ
  * @param secondPath RelativePath.
  * @returns Current relative model import path.
  */
-function calculateRelativePath(firstPath: string, secondPath: string): string {
+export function calculateRelativePath(firstPath: string, secondPath: string): string {
     const firstPathArr = firstPath.split('/');
     const secondPathArr = secondPath.split('/');
 
@@ -52,7 +52,8 @@ function calculateRelativePath(firstPath: string, secondPath: string): string {
         i++;
     }
 
-    const backtracking = '../'.repeat(firstPathArr.length - i - 1);
+    const repeatCount = firstPathArr.length - i > 0 ? firstPathArr.length - i - 1 : firstPathArr.length - i;
+    const backtracking = '../'.repeat(repeatCount);
     const forwardPath = secondPathArr.slice(i).join('/');
     let relativePath = backtracking + forwardPath;
     const normalizedValue = replaceString(relativePath);

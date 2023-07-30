@@ -2,14 +2,13 @@ import RefParser from 'json-schema-ref-parser';
 
 import { Context } from '../../../core/Context';
 import { Parser } from '../Parser';
-import { getType } from './getType';
 
 describe('getType', () => {
     it('should convert int', async () => {
         const parser = new RefParser();
         const context = new Context('test/spec/v3.yml', { output: './generated' });
         context.addRefs(await parser.resolve('test/spec/v3.yml'));
-        const type = new Parser(context).getType('int', '');
+        const type = new Parser(context).getType('int');
         expect(type.type).toEqual('number');
         expect(type.base).toEqual('number');
         expect(type.template).toEqual(null);
@@ -20,7 +19,7 @@ describe('getType', () => {
         const parser = new RefParser();
         const context = new Context('test/spec/v3.yml', { output: './generated' });
         context.addRefs(await parser.resolve('test/spec/v3.yml'));
-        const type = new Parser(context).getType('schemas/ModelWithString.yml', '');
+        const type = new Parser(context).getType('schemas/ModelWithString.yml');
         expect(type.type).toEqual('IModelWithString');
         expect(type.base).toEqual('IModelWithString');
         expect(type.template).toEqual(null);
@@ -47,7 +46,7 @@ describe('getType', () => {
         const parser = new RefParser();
         const context = new Context(object, { output: './generated' });
         context.addRefs(await parser.resolve(object));
-        const type = new Parser(context).getType('#/components/schemas/someSpecialSchema', '');
+        const type = new Parser(context).getType('#/components/schemas/someSpecialSchema');
         expect(type.type).toEqual('ISomeSpecialSchema');
     });
 });

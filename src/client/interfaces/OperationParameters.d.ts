@@ -10,4 +10,5 @@ export interface OperationParameters {
     parametersCookie: OperationParameter[];
     parametersHeader: OperationParameter[];
     parametersBody: OperationParameter | null;
+    parametersFormData?: OperationParameter | null;
 }

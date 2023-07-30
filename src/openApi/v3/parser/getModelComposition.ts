@@ -1,14 +1,13 @@
 import type { ModelComposition } from '../../../client/interfaces/ModelComposition';
 import { unique } from '../../../utils/unique';
-import type { OpenApi } from '../interfaces/OpenApi';
-import type { OpenApiSchema } from '../interfaces/OpenApiSchema';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
 import { Parser } from '../Parser';
 
 export function getModelComposition(
     this: Parser,
-    openApi: OpenApi,
-    definition: OpenApiSchema,
-    definitions: OpenApiSchema[],
+    openApi: OpenAPIV3.Document,
+    definition: OpenAPIV3.SchemaObject,
+    definitions: OpenAPIV3.SchemaObject[],
     type: 'one-of' | 'any-of' | 'all-of',
     parentRef: string
 ): ModelComposition {

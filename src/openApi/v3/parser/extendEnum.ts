@@ -6,6 +6,8 @@ import type { WithEnumExtension } from '../interfaces/Extensions/WithEnumExtensi
  * to use names and descriptions inside the generated enums.
  * @param enumerators
  * @param definition
+ *
+ * @deprecated Not used
  */
 export function extendEnum(enumerators: Enum[], definition: WithEnumExtension): Enum[] {
     const names = definition['x-enum-varnames'];

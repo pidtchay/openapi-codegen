@@ -1,25 +1,32 @@
 import RefParser from 'json-schema-ref-parser';
-import { isAbsolute } from 'path';
 
 import { CommonOpenApi } from '../core/CommonOpenApi';
+// import { CommonOpenApi } from '../core/CommonOpenApi';
 import { Context } from '../core/Context';
-import { dirName, join, resolve } from '../core/path';
-import { OpenApiReference } from '../openApi/interfaces/OpenApiReference';
+import { resolve } from '../core/path';
 import { exists } from './fileSystem';
 
-function replaceRef<T>(object: OpenApiReference, context: Context, parentRef: string): T {
-    if (object.$ref && !isAbsolute(object.$ref) && !object.$ref.match(/^(http:\/\/|https:\/\/|#\/)/g)) {
-        object.$ref = join(parentRef, object.$ref);
-    } else {
-        for (const key of Object.keys(object)) {
-            // @ts-ignore
-            if (object[key] instanceof Object) {
-                // @ts-ignore
-                replaceRef(object[key], context, parentRef);
-            }
+function isObject(object: unknown) {
+    return object != null && typeof object === 'object';
+}
+
+export function isDeepEqual(obj1: Record<string, any>, obj2: Record<string, any>) {
+    const objKeys1 = Object.keys(obj1);
+    const objKeys2 = Object.keys(obj2);
+
+    if (objKeys1.length !== objKeys2.length) return false;
+
+    for (const key of objKeys1) {
+        const value1 = obj1[key];
+        const value2 = obj2[key];
+
+        const isObjects = isObject(value1) && isObject(value2);
+
+        if ((isObjects && !isDeepEqual(value1, value2)) || (!isObjects && value1 !== value2)) {
+            return false;
         }
     }
-    return <T>object;
+    return true;
 }
 
 /**
@@ -38,19 +45,22 @@ export async function getOpenApiSpec(context: Context, input: string): Promise<a
         throw new Error(`Could not read OpenApi spec: "${absoluteInput}"`);
     }
     const parser = new RefParser();
-    context.addRefs(await parser.resolve(input));
+    await parser.dereference(input);
+    context.addRefs(parser.$refs);
     const openApi = { ...parser.schema } as CommonOpenApi;
-    let newPaths = {};
-    // If paths contain $ref then they must be changed to object
-    for (const pathValue of Object.entries(openApi.paths)) {
-        const key = pathValue[0];
-        const object = pathValue[1] as OpenApiReference;
-        if (object.$ref) {
-            let objectValue = context.get(object.$ref);
-            objectValue = replaceRef(objectValue as OpenApiReference, context, dirName(object.$ref));
-            newPaths = Object.assign(newPaths, { [key]: objectValue });
-        } else {
-            Object.assign(newPaths, { [key]: object });
+    const listOfAllRef = Object.entries(context.values());
+    const SCHEMA_HTTP_METHODS_ARRAY: string[] = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace'];
+    listOfAllRef.shift();
+    const operationsList = listOfAllRef.filter(([_definitionName, definition]) => Object.keys(definition).some(key => SCHEMA_HTTP_METHODS_ARRAY.includes(key)));
+    const newPaths = {};
+
+    for (const [definitionName, definition] of operationsList) {
+        for (const [key, pathItem] of Object.entries(openApi.paths)) {
+            const isEqual = isDeepEqual(definition, pathItem);
+
+            if (isEqual) {
+                Object.assign(newPaths, { [key]: { ...definition, $ref: definitionName } });
+            }
         }
     }
     parser.schema = Object.assign(parser.schema, { paths: newPaths });

@@ -42,6 +42,7 @@ export async function writeClientModels(options: IWriteClientModels): Promise<vo
         const dir = dirName(modelFolderPath);
         if (dir) {
             const directory = resolve(outputPath, dir);
+            console.log(directory);
             // @ts-ignore
             mkdirSync(directory, { recursive: true });
         }

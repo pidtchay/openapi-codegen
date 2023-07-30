@@ -1,9 +1,8 @@
-import { OpenApi } from './OpenApi';
-import { OpenApiSchema } from './OpenApiSchema';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
 
 export interface ModelConfig {
-    openApi: OpenApi;
-    definition: OpenApiSchema;
+    openApi: OpenAPIV3.Document;
+    definition: OpenAPIV3.SchemaObject;
     isDefinition?: boolean;
     name?: string;
     path?: string;

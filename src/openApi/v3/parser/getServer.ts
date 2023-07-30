@@ -1,6 +1,6 @@
-import type { OpenApi } from '../interfaces/OpenApi';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
 
-export function getServer(openApi: OpenApi): string {
+export function getServer(openApi: OpenAPIV3.Document): string {
     const server = openApi.servers?.[0];
     const variables = server?.variables || {};
     let url = server?.url || '';

@@ -1,13 +1,14 @@
+import { Model } from '../../../client/interfaces/Model';
 import type { OperationParameter } from '../../../client/interfaces/OperationParameter';
+import { isDeepEqual } from '../../../utils/getOpenApiSpec';
 import { getPattern } from '../../../utils/getPattern';
-import type { OpenApi } from '../interfaces/OpenApi';
-import type { OpenApiRequestBody } from '../interfaces/OpenApiRequestBody';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
 import { Parser } from '../Parser';
 import { getComment } from './getComment';
 import { getContent } from './getContent';
 import { getMediaType } from './getMediaType';
 
-export function getOperationRequestBody(this: Parser, openApi: OpenApi, parameter: OpenApiRequestBody, parentRef: string): OperationParameter {
+export function getOperationRequestBody(this: Parser, openApi: OpenAPIV3.Document, requestBodyDef: OpenAPIV3.RequestBodyObject, models: Model[], parentRef = ''): OperationParameter {
     const requestBody: OperationParameter = {
         in: 'body',
         prop: 'body',
@@ -19,12 +20,12 @@ export function getOperationRequestBody(this: Parser, openApi: OpenApi, paramete
         base: 'any',
         template: null,
         link: null,
-        description: getComment(parameter.description),
+        description: getComment(requestBodyDef.description),
         default: undefined,
         isDefinition: false,
         isReadOnly: false,
-        isRequired: parameter.required === true,
-        isNullable: parameter.nullable === true,
+        isRequired: requestBodyDef.required === true,
+        isNullable: false,
         imports: [],
         enum: [],
         enums: [],
@@ -32,21 +33,31 @@ export function getOperationRequestBody(this: Parser, openApi: OpenApi, paramete
         mediaType: null,
     };
 
-    if (parameter.content) {
-        const schema = getContent(openApi, parameter.content);
+    if (requestBodyDef.content) {
+        const schema = getContent(requestBodyDef.content);
         if (schema) {
-            requestBody.mediaType = getMediaType(openApi, parameter.content);
-            if (schema?.$ref) {
-                const model = this.getType(schema.$ref, parentRef);
+            requestBody.mediaType = getMediaType(requestBodyDef.content);
+
+            const model = this.getModel({ openApi: openApi, definition: schema, parentRef: parentRef });
+            const existedModel = models.find(it => isDeepEqual(it, model));
+            const tmp = models.map(it => {
+                if (it?.description) {
+                    return {
+                        name: it.name,
+                        description: it.description,
+                    };
+                }
+            });
+
+            if (existedModel) {
                 requestBody.export = 'reference';
-                requestBody.type = model.type;
-                requestBody.base = model.base;
-                requestBody.path = model.path;
-                requestBody.template = model.template;
-                requestBody.imports.push(...model.imports);
+                requestBody.type = existedModel.type;
+                requestBody.base = existedModel.base;
+                requestBody.path = existedModel.path;
+                requestBody.template = existedModel.template;
+                requestBody.imports.push(...existedModel.imports);
                 return requestBody;
             } else {
-                const model = this.getModel({ openApi: openApi, definition: schema, parentRef: parentRef });
                 requestBody.export = model.export;
                 requestBody.type = model.type;
                 requestBody.base = model.base;
@@ -76,6 +87,11 @@ export function getOperationRequestBody(this: Parser, openApi: OpenApi, paramete
                 requestBody.properties.push(...model.properties);
                 return requestBody;
             }
+
+            // if (requestBody.mediaType == 'multipart/form-data') {
+            //     requestBody.name = 'formData';
+            //     return requestBody;
+            // }
         }
     }
 

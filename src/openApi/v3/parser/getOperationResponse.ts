@@ -1,14 +1,12 @@
+import { Model } from '../../../client/interfaces/Model';
 import type { OperationResponse } from '../../../client/interfaces/OperationResponse';
 import { getPattern } from '../../../utils/getPattern';
-import type { OpenApi } from '../interfaces/OpenApi';
-import type { OpenApiResponse } from '../interfaces/OpenApiResponse';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
 import { Parser } from '../Parser';
 import { getComment } from './getComment';
 import { getContent } from './getContent';
-import { getModel } from './getModel';
-import { getType } from './getType';
 
-export function getOperationResponse(this: Parser, openApi: OpenApi, response: OpenApiResponse, responseCode: number, parentRef: string): OperationResponse {
+export function getOperationResponse(this: Parser, openApi: OpenAPIV3.Document, response: OpenAPIV3.ResponseObject, responseCode: number, parentRef: string, models: Model[]): OperationResponse {
     const operationResponse: OperationResponse = {
         in: 'response',
         name: '',
@@ -32,19 +30,19 @@ export function getOperationResponse(this: Parser, openApi: OpenApi, response: O
     };
 
     if (response.content) {
-        const schema = getContent(openApi, response.content);
+        const schema = getContent(response.content);
         if (schema) {
-            if (schema?.$ref) {
-                const model = this.getType(schema.$ref, parentRef);
+            const model = this.getModel({ openApi: openApi, definition: schema, parentRef: parentRef });
+            const existedModel = models.find(it => (it?.alias === model?.alias || it.name === model?.name) && it.type === model?.type);
+            if (existedModel) {
                 operationResponse.export = 'reference';
-                operationResponse.type = model.type;
-                operationResponse.base = model.base;
-                operationResponse.path = model.path;
-                operationResponse.template = model.template;
-                operationResponse.imports.push(...model.imports);
+                operationResponse.type = existedModel.type;
+                operationResponse.base = existedModel.base;
+                operationResponse.path = existedModel.path;
+                operationResponse.template = existedModel.template;
+                operationResponse.imports.push(...existedModel.imports);
                 return operationResponse;
             } else {
-                const model = this.getModel({ openApi: openApi, definition: schema, parentRef: parentRef });
                 operationResponse.export = model.export;
                 operationResponse.type = model.type;
                 operationResponse.base = model.base;

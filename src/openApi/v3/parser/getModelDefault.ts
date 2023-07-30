@@ -1,7 +1,7 @@
 import type { Model } from '../../../client/interfaces/Model';
-import type { OpenApiSchema } from '../interfaces/OpenApiSchema';
+import { OpenAPIV3 } from '../../interfaces/OpenApiTypes';
 
-export function getModelDefault(definition: OpenApiSchema, model?: Model): string | undefined {
+export function getModelDefault(definition: OpenAPIV3.SchemaObject, model?: Model): string | undefined {
     if (definition.default === undefined) {
         return;
     }
@@ -13,7 +13,7 @@ export function getModelDefault(definition: OpenApiSchema, model?: Model): strin
     const type = definition.type || typeof definition.default;
 
     switch (type) {
-        case 'int':
+        case 'bigint':
         case 'integer':
         case 'number':
             if (model?.export === 'enum' && model.enum?.[definition.default]) {
